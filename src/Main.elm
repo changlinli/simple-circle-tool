@@ -1,95 +1,90 @@
 module Main exposing (main)
 
 import Browser
-import Browser.Events exposing (onAnimationFrameDelta)
-import Canvas exposing (rect, shapes)
-import Canvas.Settings exposing (fill)
-import Canvas.Settings.Advanced exposing (rotate, transform, translate)
-import Color
-import Html exposing (Html, div)
-import Html.Attributes exposing (style)
+import Canvas as C
+import Canvas.Settings as CS
+import Color -- elm install avh4/elm-color
+import Html exposing (Html)
+import Html.Attributes as Attributes exposing (style)
+import Html.Events as Events
 
+widthOfCanvas = 600
+
+heightOfCanvas = 600
+
+viewCanvas : Model -> Html msg
+viewCanvas model =
+    C.toHtml (widthOfCanvas, heightOfCanvas)
+        [ style "width" (String.fromInt widthOfCanvas ++ "px")
+        ]
+        (List.map (renderCircle model.scale) model.circles)
+
+processHtmlInput : String -> Msg
+processHtmlInput str =
+    str
+        |> String.toFloat
+        |> Maybe.withDefault 0
+        |> \x -> x / 50
+        |> ChangeScale
+
+view : Model -> Html Msg
+view model =
+    Html.div
+        []
+        [ viewCanvas model
+        , Html.input
+            [ Attributes.type_ "range"
+            , Attributes.name "Scaling"
+            , Events.onInput processHtmlInput
+            ]
+            []
+        ]
+
+renderCircle : Float -> CircleData -> C.Renderable
+renderCircle scale circleData =
+    C.shapes
+        [ CS.stroke (Color.rgba 0 0 0 1)
+        ]
+        [ C.circle circleData.location (scale * circleData.startingSize)
+        ]
+
+type alias CircleData =
+    { location : C.Point
+    , startingSize : Float
+    }
 
 type alias Model =
-    { count : Float }
+    { circles : List CircleData
+    , scale : Float
+    }
 
+initialModel : Model
+initialModel =
+    { circles =
+        [
+            { location = (0, 0)
+            , startingSize = 200
+            }
+        ]
+    , scale = 1
+    }
 
-type Msg
-    = Frame Float
+type Msg = AddCircle CircleData
+    | ChangeScale Float
+
+update : Msg -> Model -> (Model, Cmd Msg)
+update msg model = case msg of
+    AddCircle circleData -> ({ model | circles = circleData :: model.circles } , Cmd.none)
+
+    ChangeScale float -> ({ model | scale = float } , Cmd.none)
+
 
 
 main : Program () Model Msg
 main =
     Browser.element
-        { init = \() -> ( { count = 0 }, Cmd.none )
+        { init = \() -> ( initialModel, Cmd.none )
         , view = view
-        , update =
-            \msg model ->
-                case msg of
-                    Frame _ ->
-                        ( { model | count = model.count + 1 }, Cmd.none )
-        , subscriptions = \model -> onAnimationFrameDelta Frame
+        , update = update
+        , subscriptions = \_ -> Sub.none
         }
-
-
-width =
-    400
-
-
-height =
-    400
-
-
-centerX =
-    width / 2
-
-
-centerY =
-    height / 2
-
-
-view : Model -> Html Msg
-view { count } =
-    div
-        [ style "display" "flex"
-        , style "justify-content" "center"
-        , style "align-items" "center"
-        ]
-        [ Canvas.toHtml
-            ( width, height )
-            [ style "border" "10px solid rgba(0,0,0,0.1)" ]
-            [ clearScreen
-            , render count
-            ]
-        ]
-
-
-clearScreen =
-    shapes [ fill Color.white ] [ rect ( 0, 0 ) width height ]
-
-
-render count =
-    let
-        size =
-            width / 3
-
-        x =
-            -(size / 2)
-
-        y =
-            -(size / 2)
-
-        rotation =
-            degrees (count * 3)
-
-        hue =
-            toFloat (count / 4 |> floor |> modBy 100) / 100
-    in
-    shapes
-        [ transform
-            [ translate centerX centerY
-            , rotate rotation
-            ]
-        , fill (Color.hsl hue 0.3 0.7)
-        ]
-        [ rect ( x, y ) size size ]
